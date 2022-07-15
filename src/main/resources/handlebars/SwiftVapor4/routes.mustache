@@ -21,7 +21,7 @@ extension String {
   }
 }
 
-public protocol AuthenticationMiddleware: Middleware {
+public protocol AuthenticationMiddleware: AsyncMiddleware {
   associatedtype AuthType: Authenticatable
   func authType() -> AuthType.Type
 }
@@ -38,7 +38,7 @@ public func routes<{{#authMethods}}authFor{{{name}}}: AuthenticationMiddleware, 
 {{/authMethods}}{{#apiInfo}}{{#apis}}
   //for {{classVarName}}
 {{#operations}}{{#operation}}{{#contents}}
-  {{#authMethods}}groupFor{{{name}}}{{/authMethods}}{{^authMethods}}app{{/authMethods}}.on(.{{httpMethod}}, "{{path}}".asPathComponents) { (request: Request) -> EventLoopFuture<{{operationId}}Response> in
+  {{#authMethods}}groupFor{{{name}}}{{/authMethods}}{{^authMethods}}app{{/authMethods}}.on(.{{httpMethod}}, "{{path}}".asPathComponents) { (request: Request) async throws -> {{operationId}}Response in
 {{#formParams}}    let {{paramName}} = try request.content.get({{dataType}}.self, at: "{{baseName}}")
 {{/formParams}}{{#headerParams}}{{^items}}    if !request.headers.contains(name: "{{{baseName}}}") {
       throw Abort(.badRequest, reason: "Missing header: {{{baseName}}}")
@@ -54,7 +54,7 @@ public func routes<{{#authMethods}}authFor{{{name}}}: AuthenticationMiddleware, 
     }
 {{/pathParams}}{{#bodyParam}}    let body = try request.content.decode({{dataType}}.self)
   {{/bodyParam}}
-    return try {{classVarName}}.{{operationId}}(with: request{{#hasAuthMethods}}{{#authMethods}}, asAuthenticated: request.auth.require(authFor{{{name}}}.authType()){{/authMethods}}{{/hasAuthMethods}}{{#hasParams}}, {{#parameters}}{{paramName}}: {{paramName}}{{#hasMore}}, {{/hasMore}}{{/parameters}}{{/hasParams}})
+    return try await {{classVarName}}.{{operationId}}(with: request{{#hasAuthMethods}}{{#authMethods}}, asAuthenticated: request.auth.require(authFor{{{name}}}.authType()){{/authMethods}}{{/hasAuthMethods}}{{#hasParams}}, {{#parameters}}{{paramName}}: {{paramName}}{{#hasMore}}, {{/hasMore}}{{/parameters}}{{/hasParams}})
   }
 {{/contents}}{{/operation}}{{/operations}}{{/apis}}{{/apiInfo}}
 }

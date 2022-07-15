@@ -7,7 +7,7 @@
 
 {{#operation}}
 
-public enum {{operationId}}Response: ResponseEncodable {
+public enum {{operationId}}Response: AsyncResponseEncodable {
 {{#responses}}  case http{{code}}{{#hasHeaders}}({{#headers}}{{name}}: {{datatype}}{{^required}}?{{/required}}{{#hasMore}}, {{/hasMore}}{{/headers}}){{/hasHeaders}}{{#dataType}}({{dataType}}){{/dataType}}
 {{/responses}}
 
@@ -31,15 +31,35 @@ public enum {{operationId}}Response: ResponseEncodable {
 {{/dataType}}{{/hasHeaders}}{{/responses}}
     }
   }
+
+  public func encodeResponse(for request: Request) async throws -> Response {
+    switch self {
+{{#responses}}    case .http{{code}}{{#hasHeaders}}({{#headers}}let {{name}}{{#hasMore}}, {{/hasMore}}{{/headers}}){{/hasHeaders}}{{#dataType}}(let content){{/dataType}}:
+{{#hasHeaders}}      let response = Response()
+      response.status = HTTPStatus(statusCode: {{code}})
+{{#headers}}      if let {{name}} = {{name}} {
+        response.headers.add(name: "{{{baseName}}}", value: {{name}})
+      }
+{{/headers}}      return request.eventLoop.makeSucceededFuture(response)
+{{/hasHeaders}}{{#dataType}}
+      var response = try await content.encodeResponse(for: request)
+      response.status = HTTPStatus(statusCode: {{code}})
+      return response
+{{/dataType}}{{^hasHeaders}}{{^dataType}}      let response = Response()
+      response.status = HTTPStatus(statusCode: {{code}})
+      return response
+{{/dataType}}{{/hasHeaders}}{{/responses}}
+    }
+  }
 }
 
 {{/operation}}
-public protocol {{classname}} {
+public protocol {{classname}}: AnyObject {
   associatedtype AuthType
 {{#operation}}{{#contents}}  /**
   {{httpMethod}} {{{path}}}{{#notes}}
   {{{notes}}}{{/notes}} */
-  func {{operationId}}(with req: Request{{#hasAuthMethods}}{{#authMethods}}, asAuthenticated user: AuthType{{/authMethods}}{{/hasAuthMethods}}{{#hasParams}}, {{#parameters}}{{paramName}}: {{dataType}}{{^required}}?{{/required}}{{#hasMore}}, {{/hasMore}}{{/parameters}}{{/hasParams}}) throws -> EventLoopFuture<{{operationId}}Response>
+  func {{operationId}}(with req: Request{{#hasAuthMethods}}{{#authMethods}}, asAuthenticated user: AuthType{{/authMethods}}{{/hasAuthMethods}}{{#hasParams}}, {{#parameters}}{{paramName}}: {{dataType}}{{^required}}?{{/required}}{{#hasMore}}, {{/hasMore}}{{/parameters}}{{/hasParams}}) async throws -> {{operationId}}Response
 {{/contents}}{{/operation}}
 }
 {{/operations}}

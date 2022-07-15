@@ -20,6 +20,9 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.samskivert.mustache.Escapers;
+import com.samskivert.mustache.Mustache;
+
 import static io.swagger.codegen.v3.generators.handlebars.ExtensionHelper.getBooleanValue;
 
 public abstract class AbstractSwiftCodegen extends DefaultCodegenConfig {
@@ -100,7 +103,33 @@ public abstract class AbstractSwiftCodegen extends DefaultCodegenConfig {
                         "Any")
         );
 
+        reservedWords.addAll(Arrays.asList("default"));
+
         importMapping = new HashMap<>();
+    }
+
+    @Override
+    public Mustache.Compiler processCompiler(Mustache.Compiler compiler) {
+        Mustache.Escaper SCALA = new Mustache.Escaper() {
+            @Override public String escape (String text) {
+                // Fix included as suggested by akkie in #6393
+                // The given text is a reserved word which is escaped by enclosing it with grave accents. If we would
+                // escape that with the default Mustache `HTML` escaper, then the escaper would also escape our grave
+                // accents. So we remove the grave accents before the escaping and add it back after the escaping.
+                if (text.startsWith("`") && text.endsWith("`")) {
+                    String unescaped =  text.substring(1, text.length() - 1);
+                    LOGGER.warn(":::: " + unescaped);
+                    return "`" + Escapers.HTML.escape(unescaped) + "`";
+                }
+                
+                // All none reserved words will be escaped with the default Mustache `HTML` escaper
+                LOGGER.warn("::::1 " + text);
+                return Escapers.HTML.escape(text);
+            }
+        };
+        
+        LOGGER.warn("::::2 ");
+        return compiler.withEscaper(SCALA);
     }
 
     @Override
@@ -238,7 +267,7 @@ public abstract class AbstractSwiftCodegen extends DefaultCodegenConfig {
         if (this.reservedWordsMappings().containsKey(name)) {
             return this.reservedWordsMappings().get(name);
         }
-        return "`" + name + "`";  // add an underscore to the name
+        return "_" + name;  // add an underscore to the name
     }
 
     @Override
@@ -376,6 +405,14 @@ public abstract class AbstractSwiftCodegen extends DefaultCodegenConfig {
             return "DefaultApiDelegate";
         }
         return initialCaps(name) + "ApiDelegate";
+    }
+ 
+    @Override
+    public String toApiVarName(String name) {
+        if (name.length() == 0) {
+            return "defaultApiDelegate";
+        }
+        return toVarName(name);
     }
 
     @Override
