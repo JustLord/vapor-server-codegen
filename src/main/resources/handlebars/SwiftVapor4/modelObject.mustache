@@ -17,6 +17,11 @@ public final class {{classname}}: Content {
     public init({{#allVars}}{{{name}}}: {{{datatypeWithEnum}}}{{^required}}?{{/required}}{{#has this 'more'}}, {{/has}}{{/allVars}}) { {{#allVars}}
         self.{{{name}}} = {{{name}}}{{/allVars}}
     }
+
+    public enum CodingKeys: String, CodingKey { {{#allVars}}
+        case {{{name}}} = "{{{baseName}}}"{{/allVars}}
+    }
+
 {{/has~}}{{#additionalPropertiesType}}
     public var additionalProperties: [String:{{{additionalPropertiesType}}}] = [:]
 
